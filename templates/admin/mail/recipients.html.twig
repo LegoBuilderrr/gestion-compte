@@ -1,0 +1,17 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Envoyer un mail - {{ site_name }}{% endblock %}
+
+{% block breadcrumbs %}
+<a href="{{ path('homepage') }}"><i class="material-icons">home</i></a><i class="material-icons">chevron_right</i>
+<a href="{{ path('admin') }}"><i class="material-icons">build</i>&nbsp;Administration</a><i class="material-icons">chevron_right</i>
+<i class="material-icons">mail</i>&nbsp;Envoyer un mail
+{% endblock %}
+
+{% block content %}
+    <div class="row center">
+        <h4 class="header">Envoyer un mail</h4>
+    </div>
+
+    {% include 'admin/user/_member_filters.html.twig' with {form: form, open: true, buttons: ['mail'], form_action: path('mail_edit'), note: "Vous pourrez encore ajouter des destinataires avant d'envoyer."} only %}
+{% endblock %}

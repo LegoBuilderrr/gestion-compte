@@ -127,13 +127,6 @@ class AdminController extends AbstractController
             $response->headers->set('Content-Disposition', 'attachment; filename="membres_' . date('Y-m-d-H-i-s') . '.csv"');
 
             return $response;
-
-            // Envoyer un mail
-        }
-        if ($action === 'mail') {
-            return $this->redirectToRoute('mail_edit', [
-                'request' => $request,
-            ], 307);
         }
         $limitPerPage = 25;
         $paginator = new Paginator($qb);

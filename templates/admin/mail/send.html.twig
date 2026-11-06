@@ -1,6 +1,15 @@
 {% extends 'layout.html.twig' %}
 
 {% block content %}
+{% if errors | default([]) %}
+    <div class="card-panel red lighten-4">
+        <ul>
+            {% for error in errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
 {{ form_start(form) }}
 
     <div class="row">
@@ -20,6 +29,9 @@
             <label>Non-membre(s) en copie</label>
             <div class="non-members chips">
             </div>
+        </div>
+        <div class="col s12">
+            <p id="recipient-count" class="grey-text text-darken-1" style="margin-top: 0;">Aucun destinataire</p>
         </div>
         <div class="input-field col s12">
             {{ form_widget(form.subject) }}
@@ -43,6 +55,14 @@
     <script>
         jQuery(
             function() {
+                // The non-members already chosen (the form is shown again when it could not be sent)
+                var chosenNonMembers = [];
+                try {
+                    chosenNonMembers = (JSON.parse($("input[name='form[cci]']").val() || '[]') || []).map(function (email) {
+                        return { tag: email };
+                    });
+                } catch (e) {}
+
                 function updateNonMembers() {
                     var chipsData = M.Chips.getInstance($('.non-members')).chipsData;
                     var emails = chipsData.map((member) => (member['tag']));
@@ -50,7 +70,7 @@
                 };
                 $('.non-members').chips({
                     placeholder: 'Non-membre',
-                    data: [],
+                    data: chosenNonMembers,
                     autocompleteOptions: {
                         data: {{ non_members | json_encode(constant('JSON_UNESCAPED_UNICODE')) | raw }},
                         minLength: 1,  // default
@@ -63,6 +83,29 @@
                     onChipDelete: updateNonMembers
                 });
                 updateNonMembers();
+
+                // Number of recipients: the members and the non-members chosen so far
+                function plural(count, word) {
+                    return count + ' ' + word + (count > 1 ? 's' : '');
+                }
+                function updateRecipientCount() {
+                    var members = $('#form_to_chips .chip').length;
+                    var nonMembers = $('.non-members .chip').length;
+                    var total = members + nonMembers;
+                    var text = total === 0 ? 'Aucun destinataire' : plural(total, 'destinataire');
+                    if (members > 0 && nonMembers > 0) {
+                        text += ' (' + plural(members, 'membre') + ' et ' + plural(nonMembers, 'non-membre') + ')';
+                    }
+                    $('#recipient-count').text(text);
+                }
+                var observer = new MutationObserver(updateRecipientCount);
+                ['#form_to_chips', '.non-members'].forEach(function (selector) {
+                    var element = document.querySelector(selector);
+                    if (element) {
+                        observer.observe(element, { childList: true, subtree: true });
+                    }
+                });
+                updateRecipientCount();
             }
         );
     </script>
