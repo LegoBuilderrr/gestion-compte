@@ -82,6 +82,58 @@ class MailControllerSendTest extends FunctionalTestCase
         $this->assertSame(['2 messages envoyés'], $flashes['success']);
     }
 
+    public function testAMessageThatCannotBeSentIsShownAgainWithWhatWasTyped(): void
+    {
+        $this->queueEnabled('0');
+        $client = $this->loginAs('admin');
+
+        $crawler = $this->send($client, ['Fanny Queue'], ['from' => 'intrus@example.org', 'subject' => 'Hello queue', 'message' => "Un long message\n\navec plusieurs lignes", 'cci' => '["outsider@example.org"]']);
+
+        $this->assertSame(200, $client->getResponse()->getStatusCode(), 'The page is shown again, not a redirection to an empty form.');
+        $this->assertStringContainsString("Cet email n'est pas autorisé", $crawler->text());
+        $this->assertSame('Hello queue', $crawler->filterXPath('//input[@name="form[subject]"]')->attr('value'));
+        $this->assertSame("Un long message\n\navec plusieurs lignes", trim($crawler->filterXPath('//textarea[@name="form[message]"]')->text()));
+        $this->assertStringContainsString('Fanny', $crawler->filterXPath('//input[@name="form[to][0]"]')->attr('value'));
+        $this->assertSame('["outsider@example.org"]', $crawler->filterXPath('//input[@name="form[cci]"]')->attr('value'));
+        $this->assertSame([], $this->statuses('Hello queue'), 'Nothing is sent.');
+    }
+
+    public function testAnEmptySubjectIsExplainedAndTheMessageIsKept(): void
+    {
+        $this->queueEnabled('0');
+        $client = $this->loginAs('admin');
+
+        $crawler = $this->send($client, ['Jules Queue'], ['subject' => '', 'message' => 'Le texte tapé']);
+
+        $this->assertStringContainsString('Sujet : ce champ est obligatoire.', $crawler->text());
+        $this->assertSame('Le texte tapé', trim($crawler->filterXPath('//textarea[@name="form[message]"]')->text()));
+    }
+
+    public function testAMessageWithoutRecipientIsShownAgainWithWhatWasTyped(): void
+    {
+        $this->queueEnabled('0');
+        $client = $this->loginAs('admin');
+
+        $crawler = $this->send($client, [], ['message' => 'Texte à ne pas perdre']);
+
+        $this->assertStringContainsString('Aucun destinataire', $crawler->text());
+        $this->assertSame('Hello queue', $crawler->filterXPath('//input[@name="form[subject]"]')->attr('value'));
+        $this->assertSame('Texte à ne pas perdre', trim($crawler->filterXPath('//textarea[@name="form[message]"]')->text()));
+    }
+
+    public function testAMessageWithAnErrorInItsTwigCodeIsShownAgainWithWhatWasTyped(): void
+    {
+        $this->queueEnabled('0');
+        $client = $this->loginAs('admin');
+
+        $crawler = $this->send($client, ['Gaston Queue'], ['message' => 'Bonjour {{ beneficiary.firstname']);
+
+        $this->assertSame(200, $client->getResponse()->getStatusCode());
+        $this->assertStringContainsString('Le message contient une erreur', $crawler->text());
+        $this->assertSame('Bonjour {{ beneficiary.firstname', trim($crawler->filterXPath('//textarea[@name="form[message]"]')->text()));
+        $this->assertSame([], $this->statuses('Hello queue'));
+    }
+
     /**
      * @param string[]             $names  first names of the recipients (members created for the test)
      * @param array<string, mixed> $fields fields of the form to change (from, subject, message, cci)
