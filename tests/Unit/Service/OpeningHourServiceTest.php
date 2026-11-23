@@ -137,6 +137,23 @@ class OpeningHourServiceTest extends TestCase
         $this->assertTrue($this->service->isOpen(new \DateTime('2031-07-15 10:00')));
     }
 
+    public function testOfficialHoursAreTheFirstOpeningAndTheLastClosingOfTheDay(): void
+    {
+        $this->givenOpeningHours([$this->openFrom('08:00', '13:30'), $this->openFrom('15:00', '19:00')]);
+
+        $hours = $this->service->getOfficialHours(new \DateTime('2030-03-04 10:00'));
+
+        $this->assertSame('2030-03-04 08:00', $hours['start']->format('Y-m-d H:i'));
+        $this->assertSame('2030-03-04 19:00', $hours['end']->format('Y-m-d H:i'));
+    }
+
+    public function testNoOfficialHoursWhenTheStoreIsNotOpenThatDay(): void
+    {
+        $this->givenOpeningHours([]);
+
+        $this->assertNull($this->service->getOfficialHours(new \DateTime('2030-03-04')));
+    }
+
     public function testIsClosedIsTheNegationOfIsOpen(): void
     {
         $this->givenOpeningHours([$this->openFrom('09:00', '12:00')]);

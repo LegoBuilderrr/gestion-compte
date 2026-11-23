@@ -1,0 +1,18 @@
+{# A thin line over the time grid marking the official opening or closing of the store, with its label.
+   The label runs along the line, outside of the opened period, when no bucket is there; otherwise it goes under the line.
+
+   Parameters: mark (see ShiftService::getOfficialHoursMarks()), unit (% of the grid per minute) #}
+{% set opening = mark.kind == 'opening' %}
+{% set label = opening ? 'ouverture' : 'fermeture' %}
+<div title="{{ label | capitalize }} à {{ mark.at | date('G\\hi') }}"
+     style="position: absolute; top: 0; bottom: 0; left: {{ mark.minute * unit }}%; border-left: 1px solid #9e9e9e; pointer-events: none;">
+    {% if mark.room %}
+        <span class="grey-text text-darken-1"
+              style="position: absolute; top: 4px; {{ opening ? 'right' : 'left' }}: 2px; writing-mode: vertical-rl; font-size: 11px; line-height: 1;">{{ label }}</span>
+    {% else %}
+        <span class="grey-text text-darken-1"
+              style="position: absolute; top: 100%; margin-top: 2px; {{ opening ? 'left: 2px;' : 'right: 2px; text-align: right;' }} white-space: nowrap; font-size: 11px; line-height: 1;">
+            {{ label }}
+        </span>
+    {% endif %}
+</div>

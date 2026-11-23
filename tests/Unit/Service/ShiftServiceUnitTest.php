@@ -828,6 +828,34 @@ class ShiftServiceUnitTest extends TestCase
     }
 
     // -------------------------------------------------------
+    // getOfficialHoursMarks()
+    // -------------------------------------------------------
+
+    public function testOfficialHoursMarksTellWhereTheLabelsHaveRoom(): void
+    {
+        $shift = ShiftBuilder::aShift()->forJob(new Job())->startingAt(new \DateTime('2026-11-25 07:00'))->lasting(180)->build();
+        $bucket = new ShiftBucket();
+        $bucket->addShift($shift);
+        $items = [['bucket' => $bucket]];
+        $service = $this->createService();
+        $roomOf = static function (array $marks): array {
+            return array_column($marks, 'room', 'kind');
+        };
+
+        // grid from 6h to 22h: a shift (7h-10h) crosses the opening, nothing is after the closing
+        $official = ['start' => new \DateTime('2026-11-25 08:00'), 'end' => new \DateTime('2026-11-25 19:00')];
+        $this->assertSame(['opening' => false, 'closing' => true], $roomOf($service->getOfficialHoursMarks($items, $official, 6, 22)));
+
+        // too close to the edges of the grid for a label, then out of the grid
+        $official = ['start' => new \DateTime('2026-11-25 06:05'), 'end' => new \DateTime('2026-11-25 22:55')];
+        $this->assertSame(['opening' => false, 'closing' => false], $roomOf($service->getOfficialHoursMarks($items, $official, 6, 22)));
+        $official = ['start' => new \DateTime('2026-11-25 05:00'), 'end' => new \DateTime('2026-11-25 23:30')];
+        $this->assertSame([], $service->getOfficialHoursMarks($items, $official, 6, 22));
+
+        $this->assertSame([], $service->getOfficialHoursMarks($items, null, 6, 22));
+    }
+
+    // -------------------------------------------------------
     // getMinimalShiftDuration()
     // -------------------------------------------------------
 

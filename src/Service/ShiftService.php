@@ -14,6 +14,9 @@ use Doctrine\Common\Collections\Collection;
 
 class ShiftService
 {
+    /** Width, in minutes of the time grid, kept free next to the official hours for their vertical label. */
+    private const LABEL_WIDTH_IN_MINUTES = 15;
+
     private $em;
     private $beneficiaryService;
     private $membershipService;
@@ -621,6 +624,52 @@ class ShiftService
             'items' => $items,
             'pauses' => $pauses,
         ];
+    }
+
+    /**
+     * Marks of the official opening and closing on the time grid of a day, as placed by layoutBucketsInLines().
+     *
+     * A mark says whether there is room for its label along the line, on the outside of the opened period
+     * (before the opening, after the closing): the grid must go on far enough and no bucket may be there.
+     * Otherwise the label has to go under the line. Marks outside the grid are left out.
+     *
+     * @param array<int, array{bucket: ShiftBucket}>       $items         the "items" of layoutBucketsInLines()
+     * @param null|array{start: \DateTime, end: \DateTime} $officialHours see OpeningHourService::getOfficialHours()
+     * @param int                                          $startHour     first hour of the time grid
+     * @param int                                          $endHour       last hour of the time grid
+     *
+     * @return array<int, array{kind: string, at: \DateTime, minute: int, room: bool}> minute: from the start of the grid
+     */
+    public function getOfficialHoursMarks(array $items, ?array $officialHours, int $startHour, int $endHour): array
+    {
+        if (null === $officialHours) {
+            return [];
+        }
+
+        $gridMinutes = ($endHour - $startHour + 1) * 60;
+        $marks = [];
+        foreach (['opening' => $officialHours['start'], 'closing' => $officialHours['end']] as $kind => $at) {
+            $minute = ((int) $at->format('G') - $startHour) * 60 + (int) $at->format('i');
+            if ($minute < 0 || $minute > $gridMinutes) {
+                continue;
+            }
+
+            // the outside of the opened period, as wide as a vertical label
+            $outsideStart = 'opening' === $kind ? $minute - self::LABEL_WIDTH_IN_MINUTES : $minute;
+            $outsideEnd = 'opening' === $kind ? $minute : $minute + self::LABEL_WIDTH_IN_MINUTES;
+            $room = $outsideStart >= 0 && $outsideEnd <= $gridMinutes;
+            foreach ($items as $item) {
+                $bucketStart = ((int) $item['bucket']->getStart()->format('G') - $startHour) * 60 + (int) $item['bucket']->getStart()->format('i');
+                $bucketEnd = $bucketStart + $item['bucket']->getDuration();
+                if ($bucketStart < $outsideEnd && $outsideStart < $bucketEnd) {
+                    $room = false;
+                }
+            }
+
+            $marks[] = ['kind' => $kind, 'at' => $at, 'minute' => $minute, 'room' => $room];
+        }
+
+        return $marks;
     }
 
     /**

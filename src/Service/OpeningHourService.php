@@ -45,6 +45,30 @@ class OpeningHourService
         return false;
     }
 
+    /**
+     * Official opening and closing of the day: the first start and the last end of the opening hours that apply to it.
+     * Closing exceptions are not looked at, they are not part of the regular hours.
+     *
+     * @return null|array{start: \DateTime, end: \DateTime} null when the store is not open that day
+     */
+    public function getOfficialHours(\DateTime $date): ?array
+    {
+        $start = null;
+        $end = null;
+        foreach ($this->em->getRepository(OpeningHour::class)->findByDay($date, null, true, true) as $openingHour) {
+            $openingStart = (clone $date)->setTime((int) $openingHour->getStart()->format('G'), (int) $openingHour->getStart()->format('i'));
+            $openingEnd = (clone $date)->setTime((int) $openingHour->getEnd()->format('G'), (int) $openingHour->getEnd()->format('i'));
+            if (null === $start || $openingStart < $start) {
+                $start = $openingStart;
+            }
+            if (null === $end || $openingEnd > $end) {
+                $end = $openingEnd;
+            }
+        }
+
+        return null === $start ? null : ['start' => $start, 'end' => $end];
+    }
+
     public function isClosed(?\DateTime $date = null)
     {
         return !$this->isOpen($date);
